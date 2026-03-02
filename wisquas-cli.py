@@ -706,11 +706,6 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
     except:
         https_leak = ""
         pass
-    try:
-        new_loc2, _ = tld_extraction(https_leak)
-        stat_counter2(unique_redirect_stats, str(new_loc2))
-    except:
-        pass
     stat_counter2(address_stats, str(https_leak))
     textcolor = status_color_map.get(responsecode, Fore.WHITE)
     
