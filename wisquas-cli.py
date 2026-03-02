@@ -216,6 +216,15 @@ protos = [
     '3'
 ]
 
+status_color_map = {
+    "200": Fore.GREEN,
+    "301": Fore.CYAN, "302": Fore.CYAN, "303": Fore.CYAN, "307": Fore.CYAN, "308": Fore.CYAN,
+    "400": Fore.YELLOW, "401": Fore.YELLOW, "402": Fore.YELLOW, "403": Fore.YELLOW, "405": Fore.YELLOW, "444": Fore.YELLOW,
+    "404": Fore.WHITE,
+    "413": Fore.BLUE, "414": Fore.BLUE,
+    "500": Fore.RED, "501": Fore.RED, "502": Fore.RED, "503": Fore.RED, "507": Fore.RED,
+}
+
 #
 #### Request functions
 #
@@ -345,6 +354,7 @@ def make_raw_http_request(host, port, request_string, use_ssl=False):
     url = ""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(10)
         sock.connect((host, int(port)))
 
         if use_ssl:
@@ -488,21 +498,8 @@ def print_baseline_req(baseline_req, url):
         https_leak = ""
         pass
     print (Style.RESET_ALL)
-    if responsecode == "200":
-        textcolor = Fore.GREEN
-    elif responsecode == "400" or responsecode == "401" or responsecode == "402" or responsecode == "403" or responsecode == "405" or responsecode == "444":
-        textcolor = Fore.YELLOW
-    elif responsecode == "404":
-        textcolor = Fore.WHITE
-    elif responsecode == "500" or responsecode == "501" or responsecode == "502" or responsecode == "503" or responsecode == "507":
-        textcolor = Fore.RED
-    elif responsecode == "414" or responsecode == "413":
-        textcolor = Fore.BLUE
-    elif responsecode == "301" or responsecode == "302" or responsecode == "303" or responsecode == "308" or responsecode == "307":
-        textcolor = Fore.CYAN
-    else:
-        textcolor = Fore.WHITE
-
+    textcolor = status_color_map.get(responsecode, Fore.WHITE)
+    
     print(textcolor + Style.NORMAL + "Original URL: " + Style.BRIGHT + url)
     print(Style.RESET_ALL + textcolor + Style.NORMAL + "Final Landing Page: " + Style.BRIGHT + location)
     print(Style.RESET_ALL + textcolor + Style.NORMAL + "Server: " + Style.BRIGHT + server)
@@ -585,6 +582,74 @@ def print_server_status_links(server_status_req):
     else:
         print (Style.RESET_ALL + Fore.RED + Style.DIM + "[!] No server-status links to display\n" + Style.RESET_ALL + Fore.GREEN + Style.BRIGHT)
 
+def print_stats_1(url, host_ip, asnresponse_host):
+    print(Style.RESET_ALL + Fore.BLUE + Style.BRIGHT + "\nWISQUAS SCANNER SCAN RESULTS & STATS...")
+    print(Style.RESET_ALL + Fore.GREEN + Style.NORMAL + "Target URL: " + Fore.WHITE + Style.BRIGHT + url)
+    print(Style.RESET_ALL + Fore.GREEN + Style.NORMAL + "Target IP:  "  + Fore.WHITE + Style.BRIGHT + host_ip,)
+    try:
+        print(Style.RESET_ALL + Fore.WHITE + Style.NORMAL)
+        print(asnresponse_host.json()['org'])
+        print(asnresponse_host.json()['city'], ",", asnresponse_host.json()['region'], ",", asnresponse_host.json()['country'], asnresponse_host.json()['postal'])
+        print(asnresponse_host.json()['timezone'], "-", asnresponse_host.json()['loc'])
+    except:
+        print(Style.RESET_ALL + Fore.RED + Style.DIM + "[!] No ASN results to display")
+
+def print_stats_2(statobj, statobjname):
+    print(Style.RESET_ALL + Fore.BLUE + Style.BRIGHT + f"{str(statobjname)} STATS :: response_code / length / count:" + Style.RESET_ALL + Fore.GREEN + Style.NORMAL)
+    for responsecode in sorted(statobj.keys()):
+        try:
+            sorted_lengths = sorted(statobj[responsecode].items(), key=lambda x: x[1]["count"], reverse=True)
+            for length, data in sorted_lengths:
+                textcolor = status_color_map.get(responsecode, Fore.WHITE)
+                print(textcolor + str(responsecode) + " / " + str(length) + " / " + str(data['count']) + Style.RESET_ALL)
+        except:
+            pass
+            
+def print_stats_3(statobj, statobjname, name):
+    if not statobj:
+        print (Style.RESET_ALL + Fore.RED + Style.DIM + f"[!] No {str(statobjname)} STATS to display\n" + Style.RESET_ALL + Fore.GREEN + Style.BRIGHT)        
+        return
+    valid_entries = {k: v for k, v in statobj.items() if k != "--"}
+    if not valid_entries:
+        print (Style.RESET_ALL + Fore.RED + Style.DIM + f"[!] No {str(statobjname)} STATS to display\n" + Style.RESET_ALL + Fore.GREEN + Style.BRIGHT)        
+        return
+    print(Style.RESET_ALL + Fore.BLUE + Style.BRIGHT + f"ALL OBSERVED {str(statobjname)} :: {str(name)} / count:" + Style.RESET_ALL + Fore.GREEN + Style.NORMAL)
+    for key, data in sorted(statobj.items(), key=lambda x: x[1]["count"], reverse=True):
+        if key != "--":
+            print(str(key) + " / " + str(data['count']))
+
+hosts_stats = {}
+verbs_stats = {}
+payloads_stats = {}
+
+servers_stats = {}
+title_stats = {}
+address_stats = {}
+locations_stats = {}
+unique_redirect_stats = {}
+
+def stat_counter(statobj, status, length):
+    try:
+        if status not in statobj:
+            statobj[status] = {length: {"count": 1}}
+        elif length in statobj[status]:
+            statobj[status][length]["count"] += 1
+        else:
+            statobj[status][length] = {"count": 1}
+    except:
+        pass
+
+def stat_counter2(obj, key):
+    try:
+        if key == "" or key == " ": # Handle blank values for the objects
+            key = "--"
+        if key not in obj:
+            obj[key] = {"count": 1}
+        else:
+            obj[key]["count"] += 1
+    except:
+        pass
+
 def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
     responsecode = str(reqobj['status'])
     responsecontent = (reqobj['body'])
@@ -595,6 +660,7 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
     responsecookieslen = str(len(reqobj['headers'].get('Set-Cookie', [])))
     server = reqobj['headers'].get('Server', '')
 
+    stat_counter2(servers_stats, str(server))
     terminal_width = shutil.get_terminal_size().columns
 
     content_type = reqobj['headers'].get('Content-Type', '')
@@ -618,6 +684,7 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
     except:
         pass
         title = ""
+    stat_counter2(title_stats, str(title))
     try:
         location = reqobj['headers'].get('Location', '')
         location = str(location)
@@ -627,6 +694,11 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
         pass
         location = ""
     try:
+        new_loc1, _ = tld_extraction(location)
+        stat_counter2(unique_redirect_stats, str(new_loc1))
+    except:
+        pass
+    try:
         https_soup = BeautifulSoup(reqobj['body'], features="xml" if is_xml else "html.parser")
         https_td = https_soup.find('address')
         https_output = https_td.contents
@@ -634,29 +706,25 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
     except:
         https_leak = ""
         pass
+    try:
+        new_loc2, _ = tld_extraction(https_leak)
+        stat_counter2(unique_redirect_stats, str(new_loc2))
+    except:
+        pass
+    stat_counter2(address_stats, str(https_leak))
+    textcolor = status_color_map.get(responsecode, Fore.WHITE)
     
-    if responsecode == "200":
-        textcolor = Fore.GREEN
-    elif responsecode == "400" or responsecode == "401" or responsecode == "402" or responsecode == "403" or responsecode == "405" or responsecode == "444":
-        textcolor = Fore.YELLOW
-    elif responsecode == "404":
-        textcolor = Fore.WHITE
-    elif responsecode == "500" or responsecode == "501" or responsecode == "502" or responsecode == "503" or responsecode == "507":
-        textcolor = Fore.RED
-    elif responsecode == "414" or responsecode == "413":
-        textcolor = Fore.BLUE
-    elif responsecode == "301" or responsecode == "302" or responsecode == "303" or responsecode == "308" or responsecode == "307":
-        textcolor = Fore.CYAN
-    else:
-        textcolor = Fore.WHITE
-
     if len(verb) > 0:
         label = (verb + ":").ljust(32)
         print(textcolor + label + responsecode + " / " + responsecontentlen + " / " + responsecookieslen + " / " + responseheaderslen + " /  " + server + " /  " + title + " / " + https_leak + " / " + location + Style.RESET_ALL)
+        stat_counter(verbs_stats, responsecode, responsecontentlen)
+        stat_counter2(locations_stats, str(location))
         
     if len(newhost) > 0:
         label = (newhost + ":").ljust(32)
         print(textcolor + label + responsecode + " / " + responsecontentlen + " / " + responsecookieslen + " / " + responseheaderslen + " /  " + server + " /  " + title + " /  " + https_leak + " / " + location + Style.RESET_ALL)
+        stat_counter(hosts_stats, responsecode, responsecontentlen)
+        stat_counter2(locations_stats, str(location))
         
     if len(enum) > 0:
         if len(enum) > 100:
@@ -673,10 +741,12 @@ def wq_messages(reqobj, verb="", newhost="", enum="", proto=""):
         else:
             label = (enum + ":").ljust(32)
         print(textcolor + label + responsecode + " / " + responsecontentlen + " / " + responsecookieslen + " / " + responseheaderslen + " /  " + server + " /  " + title + " /  " + https_leak + " / " + location + Style.RESET_ALL)
+        stat_counter(payloads_stats, responsecode, responsecontentlen)
     
     if len(proto) > 0:
         label = (proto + ":").ljust(32)
         print(textcolor + label + responsecode + " / " + responsecontentlen + " / " + responsecookieslen + " / " + responseheaderslen + " /  " + server + " /  " + title + " /  " + https_leak + " / " + location + Style.RESET_ALL)
+        stat_counter2(locations_stats, str(location))
 
 #
 #### HTTP Verbs, Payloads, UAs
@@ -936,6 +1006,26 @@ def wisquas_cli_main():
     print_manifest_json_text(manifest_json_req)
     print()
     print_package_json_text(package_json_req)
+
+    #######    Stat Boxes   ###############################################
+    print()
+    print_stats_1(url, host_ip, asnresponse_host)
+    print()
+    print_stats_2(payloads_stats, "PAYLOADS") # Payloads
+    print()
+    print_stats_2(verbs_stats, "VERBS") # Verbs
+    print()
+    print_stats_2(hosts_stats, "HOSTS") # Hosts
+    print()
+    print_stats_3(servers_stats, "SERVERS", "server_name") # Servers
+    print()
+    print_stats_3(title_stats, "TITLES", "title") # Titles
+    print()
+    print_stats_3(address_stats, "ADDRESSES", "address") # Addresses
+    print()
+    print_stats_3(locations_stats, "LOCATIONS", "redirect_location") # Locations
+    print()
+    print_stats_3(unique_redirect_stats, "UNIQUE REDIRECT HOSTS", "redirect_host") # Unique redirect hosts
     
     print (Style.RESET_ALL + Fore.GREEN + Style.BRIGHT + "\n🐇🐇🐇🐇🐇 WISQUAS SCAN COMPLETE :: More info at https://gitlab.com/LostRabbitLabs 🐇🐇🐇🐇🐇\n" + Style.RESET_ALL)
 
