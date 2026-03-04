@@ -570,7 +570,8 @@ def print_server_status_links(server_status_req):
                 for host, method, path in matches:
                     if not host or not path:
                         continue
-                    links.append(f"{host}{path}")
+                    if f"{host}{path}" not in links:
+                        links.append(f"{host}{path}")
             if len(links) > 0:
                 print(Style.RESET_ALL + Fore.BLUE + Style.BRIGHT + "DISCOVERED SERVER-STATUS LINKS OUTPUT:" + Style.RESET_ALL + Fore.GREEN + Style.BRIGHT)
                 for link in links:
