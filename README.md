@@ -1,7 +1,7 @@
 <table style="border: none">
     <tr style="text-align: left; border: none">
         <th style="height: auto; width: 125px; padding-top: 55px; border: none">
-            <a href="https://www.lostrabbitlabs.com"><img src="https://lostrabbitlabs.com/hubfs/LRL%20logo.jpg" width="400"></a>
+            <a href="https://www.lostrabbitlabs.com"><img src="https://lostrabbitlabs.com/assets/rabbit-center-logo-transparent.png" width="400"></a>
         </th>
         <th style="border: none">
             <h1> --- WisQuas-CLI --- </h1>
